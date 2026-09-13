@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Imagination Box — Panel de personajes</title>
+<style>
+  :root{
+    --bg:#0f0f14;--bg2:#181820;--bg3:#22222c;--bg4:#2a2a36;--border:#2f2f3a;
+    --text0:#f2f2f5;--text1:#b5b5c0;--text2:#7a7a88;
+    --accent:#8b5cf6;--accent2:#6d28d9;--accent-glow:rgba(139,92,246,.18);
+    --danger:#ef4444;--danger-glow:rgba(239,68,68,.12);
+    --radius:14px;--radius-sm:9px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:radial-gradient(ellipse 120% 80% at 20% -10%,var(--accent-glow),transparent 55%),var(--bg);color:var(--text0);}
+  button,input{font-family:inherit;}
+
+  /* ===== Auth screen ===== */
+  #authScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .authCard{width:100%;max-width:360px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:28px;}
+  .authHead{display:flex;align-items:center;gap:10px;margin-bottom:22px;}
+  .authHead .emoji{font-size:1.7rem;}
+  .authHead h1{font-size:1.1rem;margin:0;}
+  .authHead p{margin:1px 0 0;color:var(--text2);font-size:.78rem;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:.78rem;color:var(--text1);margin-bottom:6px;}
+  .field input{width:100%;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg3);color:var(--text0);font-size:.9rem;}
+  .field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+  .btn{padding:9px 16px;border-radius:var(--radius-sm);border:none;font-weight:600;font-size:.83rem;cursor:pointer;transition:opacity .15s,transform .05s;}
+  .btn:active{transform:scale(.98);}
+  .btn:hover{opacity:.9;}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;}
+  .btn-ghost{background:var(--bg4);color:var(--text1);border:1px solid var(--border);}
+  .btn-danger{background:var(--danger-glow);color:var(--danger);border:1px solid rgba(239,68,68,.3);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-block{width:100%;}
+  #authErr{color:var(--danger);font-size:.8rem;margin-top:10px;min-height:1em;}
+
+  /* ===== App shell ===== */
+  #app{display:none;height:100vh;flex-direction:column;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .emoji{font-size:1.5rem;}
+  .brand h1{font-size:1.05rem;margin:0;}
+  .brand p{margin:0;color:var(--text2);font-size:.72rem;}
+  .who{display:flex;align-items:center;gap:14px;font-size:.8rem;color:var(--text1);}
+  .who button{background:none;border:none;color:var(--text2);text-decoration:underline;cursor:pointer;font-size:.76rem;padding:0;}
+
+  .shell{flex:1;display:flex;min-height:0;}
+
+  /* ===== Left: list pane ===== */
+  #listPane{width:300px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg2);}
+  .listHead{padding:14px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--border);}
+  .searchBox{position:relative;}
+  .searchBox input{width:100%;padding:9px 12px 9px 32px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg3);color:var(--text0);font-size:.85rem;}
+  .searchBox input:focus{outline:none;border-color:var(--accent);}
+  .searchBox svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text2);}
+  #rows{flex:1;overflow-y:auto;padding:6px;}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-sm);cursor:pointer;margin-bottom:2px;border:1px solid transparent;}
+  .row:hover{background:var(--bg3);}
+  .row.active{background:var(--accent-glow);border-color:rgba(139,92,246,.4);}
+  .row img,.row .noavatar{width:34px;height:34px;border-radius:9px;object-fit:cover;background:var(--bg4);flex-shrink:0;}
+  .row .noavatar{display:flex;align-items:center;justify-content:center;font-size:1rem;}
+  .row .rmeta{min-width:0;flex:1;}
+  .row .rname{font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .row .rtrig{font-family:ui-monospace,monospace;font-size:.68rem;color:var(--text2);}
+  .rowSkeleton{height:52px;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--bg3) 0%,var(--bg4) 50%,var(--bg3) 100%);background-size:200% 100%;animation:shimmer 1.3s infinite;margin-bottom:6px;}
+  @keyframes shimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  .listEmpty{padding:30px 18px;text-align:center;color:var(--text2);font-size:.82rem;line-height:1.5;}
+
+  /* ===== Right: detail pane ===== */
+  #detailPane{flex:1;overflow-y:auto;display:flex;flex-direction:column;}
+  .detailInner{max-width:460px;width:100%;margin:0 auto;padding:32px 24px 60px;}
+  .avatarBig{width:88px;height:88px;border-radius:22px;object-fit:cover;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 22px;border:1px solid var(--border);}
+  .detailInner .field label{font-size:.8rem;}
+  .triggerHint{font-size:.74rem;color:var(--text2);margin-top:6px;}
+  .triggerHint b{color:var(--accent);font-family:ui-monospace,monospace;font-weight:600;}
+  .detailActions{display:flex;gap:10px;margin-top:22px;}
+  .detailActions .btn-danger{margin-left:auto;}
+  #formErr{color:var(--danger);font-size:.8rem;min-height:1em;margin-top:4px;}
+
+  .placeholderState{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text2);padding:40px;text-align:center;}
+  .placeholderState .big{font-size:2.4rem;}
+  .placeholderState p{margin:0;font-size:.85rem;max-width:280px;line-height:1.5;}
+
+  .backBtn{display:none;background:none;border:none;color:var(--text1);font-size:.85rem;cursor:pointer;align-items:center;gap:4px;margin-bottom:18px;padding:0;}
+
+  /* ===== Confirm modal ===== */
+  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:60;padding:20px;}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:22px;max-width:360px;width:100%;}
+  .modal h3{margin:0 0 8px;font-size:1rem;}
+  .modal p{margin:0 0 18px;color:var(--text1);font-size:.85rem;line-height:1.5;}
+  .modal .row2{display:flex;gap:10px;justify-content:flex-end;}
+
+  /* ===== Toast ===== */
+  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--bg4);border:1px solid var(--border);color:var(--text0);padding:11px 18px;border-radius:10px;font-size:.83rem;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #toast.err{border-color:rgba(239,68,68,.4);}
+
+  .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:-2px;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ===== Mobile ===== */
+  @media (max-width:760px){
+    #listPane{width:100%;border-right:none;}
+    #detailPane{width:100%;}
+    .shell{position:relative;overflow:hidden;}
+    #listPane,#detailPane{position:absolute;inset:0;transition:transform .22s ease;}
+    #detailPane{transform:translateX(100%);z-index:5;background:var(--bg);}
+    body.detail-open #detailPane{transform:translateX(0);}
+    body.detail-open #listPane{transform:translateX(-15%);}
+    .backBtn{display:flex;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== AUTH ===== -->
+<div id="authScreen">
+  <div class="authCard">
+    <div class="authHead">
+      <div class="emoji">🌈</div>
+      <div>
+        <h1>Imagination Box</h1>
+        <p>Iniciá sesión con tu cuenta de Communiter</p>
+      </div>
+    </div>
+    <div class="field"><label>Email</label><input id="loginEmail" type="email" placeholder="tu@email.com"></div>
+    <div class="field"><label>Contraseña</label><input id="loginPass" type="password" placeholder="••••••••"></div>
+    <button class="btn btn-primary btn-block" id="loginBtn">Entrar</button>
+    <div id="authErr"></div>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="emoji">🌈</div>
+      <div>
+        <h1>Imagination Box</h1>
+        <p id="botIdNote">Panel de personajes</p>
+      </div>
+    </div>
+    <div class="who">
+      <span>Conectado como <b id="userEmail"></b></span>
+      <button id="logoutBtn">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <div class="shell">
+    <!-- LISTA -->
+    <div id="listPane">
+      <div class="listHead">
+        <div class="searchBox">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="searchInput" placeholder="Buscar personaje...">
+        </div>
+        <button class="btn btn-primary btn-block" id="newCharBtn">+ Nuevo personaje</button>
+      </div>
+      <div id="rows"></div>
+    </div>
+
+    <!-- DETALLE -->
+    <div id="detailPane">
+      <div id="placeholderState" class="placeholderState">
+        <div class="big">🌈</div>
+        <p>Elegí un personaje de la lista para editarlo, o creá uno nuevo.</p>
+      </div>
+
+      <div id="detailForm" class="detailInner" style="display:none;">
+        <button class="backBtn" id="backBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="15 18 9 12 15 6"/></svg>
+          Volver
+        </button>
+
+        <div id="avatarPreview" class="avatarBig">🌈</div>
+
+        <div class="field"><label>Nombre</label><input id="fName" placeholder="ej. Guy"></div>
+        <div class="field">
+          <label>Trigger</label>
+          <input id="fTrigger" placeholder="ej. guy">
+          <div class="triggerHint">Se usa así en el chat: <b id="triggerPreview">trigger:</b>tu mensaje</div>
+        </div>
+        <div class="field"><label>Avatar (URL, opcional)</label><input id="fAvatar" placeholder="https://..."></div>
+
+        <div id="formErr"></div>
+
+        <div class="detailActions">
+          <button class="btn btn-primary" id="saveBtn">Guardar</button>
+          <button class="btn btn-ghost" id="cancelBtn">Cancelar</button>
+          <button class="btn btn-danger" id="deleteBtn" style="display:none;">Eliminar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Confirm modal ===== -->
+<div class="modal-bg" id="confirmBg">
+  <div class="modal">
+    <h3 id="confirmTitle">¿Eliminar personaje?</h3>
+    <p id="confirmBody">Esta acción no se puede deshacer.</p>
+    <div class="row2">
+      <button class="btn btn-ghost" id="confirmCancel">Cancelar</button>
+      <button class="btn btn-danger" id="confirmOk">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// ====== CONFIG ======
+const API_BASE = 'https://communiter-bots-runner.vercel.app'; // tu proyecto de Vercel
+// El bot se elige por la URL (?bot=UID_DEL_BOT), no queda fijo en el código —
+// así este mismo archivo sirve para CUALQUIER bot Character Box que crees.
+// Ej: idiot-box.html?bot=bot_cc_roleplay_character_box_41a99
+const DEFAULT_BOT_ID = 'bot_cc_roleplay_character_box_41a99'; // Idiot Box
+const BOT_ID = new URLSearchParams(location.search).get('bot') || DEFAULT_BOT_ID;
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCmuNNnH9h2ChG0HbP6MBUP5qiC96RFr0s",
+  authDomain: "communiter-chat.firebaseapp.com",
+  databaseURL: "https://communiter-chat-default-rtdb.firebaseio.com",
+  projectId: "communiter-chat",
+  storageBucket: "communiter-chat.firebasestorage.app",
+  messagingSenderId: "806566406912",
+  appId: "1:806566406912:web:662dfc30a4d8b88e0061e5",
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const $ = (id) => document.getElementById(id);
+
+if (BOT_ID !== DEFAULT_BOT_ID) $('botIdNote').textContent = 'Bot: ' + BOT_ID;
+
+let currentToken = null;
+let currentChars = {};     // { trigger: {trigger,name,avatarUrl} }
+let selectedTrigger = null; // null = ninguno seleccionado, '' = modo "nuevo"
+let searchTerm = '';
+
+// ===== Auth =====
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentToken = await user.getIdToken();
+    $('authScreen').style.display = 'none';
+    $('app').style.display = 'flex';
+    $('userEmail').textContent = user.email || user.uid;
+    loadCharacters();
+  } else {
+    currentToken = null;
+    $('authScreen').style.display = 'flex';
+    $('app').style.display = 'none';
+  }
+});
+
+$('loginBtn').onclick = doLogin;
+$('loginPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+async function doLogin() {
+  $('authErr').textContent = '';
+  try {
+    await signInWithEmailAndPassword(auth, $('loginEmail').value.trim(), $('loginPass').value);
+  } catch (e) {
+    $('authErr').textContent = 'No se pudo entrar: ' + (e.message || e.code || 'error desconocido');
+  }
+}
+$('logoutBtn').onclick = () => signOut(auth);
+
+// ===== API =====
+async function apiFetch(path, opts) {
+  opts = opts || {};
+  opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + currentToken };
+  const resp = await fetch(`${API_BASE}${path}${path.includes('?') ? '&' : '?'}botId=${encodeURIComponent(BOT_ID)}`, opts);
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(data.error || ('HTTP ' + resp.status));
+  return data;
+}
+
+async function loadCharacters() {
+  $('rows').innerHTML = '<div class="rowSkeleton"></div><div class="rowSkeleton"></div><div class="rowSkeleton"></div>';
+  try {
+    const data = await apiFetch('/api/characters');
+    currentChars = data.characters || {};
+    renderRows();
+  } catch (e) {
+    $('rows').innerHTML = `<div class="listEmpty">⚠️ Error cargando personajes:<br>${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// ===== Toast =====
+let toastTimer = null;
+function showToast(msg, isErr) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = isErr ? 'show err' : 'show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 3200);
+}
+
+// ===== List rendering =====
+function renderRows() {
+  const keys = Object.keys(currentChars)
+    .filter((k) => {
+      if (!searchTerm) return true;
+      const c = currentChars[k];
+      return (c.name || '').toLowerCase().includes(searchTerm) || k.includes(searchTerm);
+    })
+    .sort((a, b) => (currentChars[a].name || '').localeCompare(currentChars[b].name || ''));
+
+  if (!Object.keys(currentChars).length) {
+    $('rows').innerHTML = `<div class="listEmpty">Todavía no registraste ningún personaje.<br>Creá el primero con el botón de arriba.</div>`;
+    return;
+  }
+  if (!keys.length) {
+    $('rows').innerHTML = `<div class="listEmpty">Sin resultados para "${escapeHtml(searchTerm)}".</div>`;
+    return;
+  }
+
+  $('rows').innerHTML = keys.map((k) => {
+    const c = currentChars[k];
+    const active = k === selectedTrigger ? ' active' : '';
+    const avatar = c.avatarUrl
+      ? `<img src="${escapeAttr(c.avatarUrl)}" onerror="this.outerHTML='<div class=\\'noavatar\\'>🌈</div>'">`
+      : `<div class="noavatar">🌈</div>`;
+    return `
+      <div class="row${active}" data-trigger="${escapeAttr(k)}">
+        ${avatar}
+        <div class="rmeta">
+          <div class="rname">${escapeHtml(c.name)}</div>
+          <div class="rtrig">${escapeHtml(k)}:texto</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  $('rows').querySelectorAll('.row').forEach((el) => {
+    el.onclick = () => selectCharacter(el.dataset.trigger);
+  });
+}
+
+$('searchInput').oninput = (e) => { searchTerm = e.target.value.trim().toLowerCase(); renderRows(); };
+
+// ===== Detail pane =====
+function selectCharacter(trigger) {
+  selectedTrigger = trigger;
+  renderRows();
+  openDetail(trigger);
+}
+
+$('newCharBtn').onclick = () => { selectedTrigger = ''; renderRows(); openDetail(''); };
+
+function openDetail(trigger) {
+  const isNew = trigger === '';
+  const c = isNew ? null : currentChars[trigger];
+  $('placeholderState').style.display = 'none';
+  $('detailForm').style.display = 'block';
+  document.body.classList.add('detail-open');
+
+  $('fName').value = c ? c.name : '';
+  $('fTrigger').value = trigger || '';
+  $('fTrigger').disabled = !isNew; // el trigger de uno existente no se cambia acá, para no duplicar
+  $('fAvatar').value = c ? (c.avatarUrl || '') : '';
+  $('formErr').textContent = '';
+  $('deleteBtn').style.display = isNew ? 'none' : 'inline-block';
+  updateAvatarPreview();
+  updateTriggerPreview();
+}
+
+function closeDetail() {
+  selectedTrigger = null;
+  renderRows();
+  $('detailForm').style.display = 'none';
+  $('placeholderState').style.display = 'flex';
+  document.body.classList.remove('detail-open');
+}
+
+$('backBtn').onclick = closeDetail;
+$('cancelBtn').onclick = closeDetail;
+
+$('fAvatar').addEventListener('input', updateAvatarPreview);
+function updateAvatarPreview() {
+  const url = $('fAvatar').value.trim();
+  const el = $('avatarPreview');
+  if (!url) { el.innerHTML = '🌈'; return; }
+  el.innerHTML = `<img src="${escapeAttr(url)}" style="width:100%;height:100%;object-fit:cover;border-radius:22px;" onerror="this.parentElement.innerHTML='🌈'">`;
+}
+
+$('fTrigger').addEventListener('input', updateTriggerPreview);
+function updateTriggerPreview() {
+  const t = $('fTrigger').value.trim().toLowerCase() || 'trigger';
+  $('triggerPreview').textContent = t + ':';
+}
+
+// Enter en Nombre/Trigger/Avatar guarda directo, salvo que ya se esté guardando
+[$('fName'), $('fTrigger'), $('fAvatar')].forEach((el) => {
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter') $('saveBtn').click(); });
+});
+
+$('saveBtn').onclick = async () => {
+  const name = $('fName').value.trim();
+  const trigger = $('fTrigger').value.trim().toLowerCase();
+  const avatarUrl = $('fAvatar').value.trim();
+  if (!name || !trigger) { $('formErr').textContent = 'Nombre y trigger son obligatorios.'; return; }
+  if (!selectedTrigger && currentChars[trigger]) { $('formErr').textContent = `Ya existe un personaje con el trigger "${trigger}".`; return; }
+
+  $('saveBtn').disabled = true;
+  $('saveBtn').innerHTML = '<span class="spinner"></span>Guardando...';
+  try {
+    const data = await apiFetch('/api/characters', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trigger, name, avatarUrl }),
+    });
+    currentChars = data.characters || {};
+    selectedTrigger = trigger;
+    renderRows();
+    openDetail(trigger);
+    showToast(`✅ "${name}" guardado`);
+  } catch (e) {
+    $('formErr').textContent = e.message;
+  } finally {
+    $('saveBtn').disabled = false;
+    $('saveBtn').textContent = 'Guardar';
+  }
+};
+
+// ===== Delete (modal propio, no confirm() nativo) =====
+let pendingDelete = null;
+$('deleteBtn').onclick = () => {
+  const c = currentChars[selectedTrigger];
+  pendingDelete = selectedTrigger;
+  $('confirmTitle').textContent = `¿Eliminar a "${c.name}"?`;
+  $('confirmBody').textContent = 'Esta acción no se puede deshacer.';
+  $('confirmBg').style.display = 'flex';
+};
+$('confirmCancel').onclick = () => { $('confirmBg').style.display = 'none'; pendingDelete = null; };
+$('confirmBg').onclick = (e) => { if (e.target === $('confirmBg')) $('confirmCancel').onclick(); };
+$('confirmOk').onclick = async () => {
+  const trigger = pendingDelete;
+  if (!trigger) return;
+  $('confirmOk').disabled = true;
+  try {
+    const data = await apiFetch('/api/characters?trigger=' + encodeURIComponent(trigger), { method: 'DELETE' });
+    currentChars = data.characters || {};
+    $('confirmBg').style.display = 'none';
+    closeDetail();
+    showToast('🗑️ Personaje eliminado');
+  } catch (e) {
+    showToast('⚠️ Error al eliminar: ' + e.message, true);
+  } finally {
+    $('confirmOk').disabled = false;
+    pendingDelete = null;
+  }
+};
+
+function escapeHtml(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function escapeAttr(s) { return (s || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;'); }
+</script>
+</body>
+</html>
